@@ -1,0 +1,251 @@
+#include <cmath>
+#include <initializer_list>
+#include <iostream>
+#include <list>
+#include <memory>
+#include <random>
+#include <stdexcept>
+#include <utility>
+
+template <typename T>
+class Matrix
+{
+private:
+
+    std::vector<T> data;
+    int rows;
+    int cols;
+
+public:
+
+    Matrix(int rows, int cols) : rows(rows), cols(cols){
+        data = std::vector<T>(rows * cols, 0);
+        rows = rows;
+        cols = cols;
+    }
+
+    Matrix(int rows, int cols, const std::initializer_list<T>& list): rows(rows), cols(cols) {
+        if(rows*cols != list.size) {
+            throw std::length_error("The number of columns and rows does not match the given list in the matrix construction");
+        }
+        // Check if that actually works
+        data = std::vector(list);
+        rows = rows;
+        cols = cols;
+    }
+
+    Matrix(Matrix& other) : data(other.data), rows(other.rows), cols(other.cols) {}
+
+    Matrix(Matrix&& other)  noexcept : data(other.data), rows(other.rows), cols(other.cols) {
+        other.data = nullptr;
+        other.rows = 0;
+        other.cols = 0;
+    }
+
+    ~Matrix() = default;
+
+    // Copy assignment operator
+    Matrix& operator=(const Matrix& other) {
+        if(this != &other) {
+            data = other.data;
+            rows = other.rows;
+            cols = other.cols;
+        }
+        return *this;
+    }
+
+    // Move assignment operator
+    Matrix&& operator=(const Matrix&& other) {
+        if(this != &other) {
+            data = other.data;
+            rows = other.rows;
+            cols = other.cols;
+            other.data = nullptr;
+            other.rows = 0;
+            other.cols = 0;
+        }
+        return *this;
+    }
+
+    T& operator[](const std::pair<int, int>& ij){
+        if(ij.first >= rows) {
+            throw std::length_error("Number of rows exceeded");
+        }
+        if(ij.second >= cols) {
+            throw std::length_error("Number of columns exceeded");
+        }
+        return data[ij.first * cols + ij.second];
+    }
+
+    const T& operator[](const std::pair<int, int>& ij) const {
+        if(ij.first >= rows) {
+            throw std::length_error("Number of rows exceeded");
+        }
+        if(ij.second >= cols) {
+            throw std::length_error("Number of columns exceeded");
+        }
+        return data[ij.first * cols + ij.second];
+    }
+
+    template<typename U>
+    Matrix<typename std::common_type<T, U>::type> operator*(U x) const {
+        Matrix<typename std::common_type<T, U>::type> newMatrix = Matrix(this->rows, this->columns);
+        for(int i = 0; i < this->data.size; i++) {
+            newMatrix.data[i] = this->data[i] * x;
+        }
+        return newMatrix;
+    }
+
+    template<typename U>
+    Matrix<typename std::common_type<T,U>::type> operator*(const Matrix<U>& B) const {
+        if(this->cols != B.rows) {
+            throw std::length_error("Matrices' sizes incompatible for multiplication");
+        }
+        Matrix<typename std::common_type<T, U>::type> newMatrix = Matrix(this->rows, B.cols);
+        for(int i = 0; i < this->rows; i++) {
+            for(int j = 0; j < B.cols; j++) {
+                typename std::common_type<T, U>::type sum;
+                for(int k = 0; k < this->cols; k++) {
+                    sum += this[i][k] * B[k][j];
+                }
+                newMatrix[i][j] = sum;
+            }
+        }
+        return newMatrix;
+    }
+
+    template<typename U>
+    Matrix<typename std::common_type<T,U>::type> operator+(const Matrix<U>& B) const {
+        if (B.rows != 1 && (B.rows != this->rows || B.cols != this->cols)) {
+            throw std::length_error("Matrices' sizes incompatible for addition");
+        }
+        Matrix<typename std::common_type<T,U>::type> newMatrix = Matrix<typename std::common_type<T,U>::type>(this->rows, this->cols);
+        if (B.rows == 1) {
+            for(int i = 0; i < this->rows; i++) {
+                for(int j = 0; j < this->cols; j++) {
+                    newMatrix[i][j] = this[i][j] + B[0][j];
+                }
+            }
+        }
+        else {
+            for(int i = 0; i < this->rows; i++) {
+                for(int j = 0; j < this->cols; j++) {
+                    newMatrix[i][j] = this[i][j] + B[i][j];
+                }
+            }
+        }
+        return newMatrix;
+    }
+
+    template<typename U>
+    Matrix<typename std::common_type<T,U>::type> operator-(const Matrix<U>& B) const {
+        if (B.rows != 1 && (B.rows != this->rows || B.cols != this->cols)) {
+            throw std::length_error("Matrices' sizes incompatible for subtraction");
+        }
+        Matrix<std::common_type<T,U>> newMatrix = Matrix<std::common_type<T,U>>(this->rows, this->cols);
+        if (B.rows == 1) {
+            for(int i = 0; i < this->rows; i++) {
+                for(int j = 0; j < this->cols; j++) {
+                    newMatrix[i][j] = this[i][j] - B[0][j];
+                }
+            }
+        }
+        else {
+            for(int i = 0; i < this->rows; i++) {
+                for(int j = 0; j < this->cols; j++) {
+                    newMatrix[i][j] = this[i][j] - B[i][j];
+                }
+            }
+        }
+        return newMatrix;
+    }
+
+    Matrix transpose() const {
+        Matrix<T> transposedMatrix(cols, rows);
+        for(int i = 0; i < rows; i++) {
+            for(int j = 0; j < cols; j++) {
+                transposedMatrix[j][i] = this[i][j];
+            }
+        }
+
+        return transposedMatrix;
+    }
+
+    int getRows() const {
+        return rows;
+    }
+
+    int getCols() const {
+        return cols;
+    }
+
+    // For debugging
+    void print() const {
+        for(int i = 0; i < rows; i++) {
+            for(int j = 0; j < cols; j++) {
+                std::cout << this->data[i*cols + j] << " ";
+            }
+            std::cout << std::endl;
+        }
+    }
+};
+
+template<typename T>
+class Layer
+{
+    // Your implementation of the Layer class starts here
+};
+
+template <typename T>
+class Linear: public Layer<T>
+{
+    // Your implementation of the Linear class starts here
+};
+
+template <typename T>
+class ReLU: public Layer<T>
+{
+    // Your implementation of the ReLU class starts here
+};
+
+template <typename T>
+class Net
+{
+    // Your implementation of the Net class starts here
+};
+
+// Function to calculate the loss
+template <typename T>
+T MSEloss(const Matrix<T>& y_true, const Matrix<T>& y_pred)
+{
+    // Your implementation of the MSEloss function starts here
+}
+
+// Function to calculate the gradients of the loss
+template <typename T>
+Matrix<T> MSEgrad(const Matrix<T>& y_true, const Matrix<T>& y_pred)
+{
+    // Your implementation of the MSEgrad function starts here
+}
+
+// Calculate the argmax
+template <typename T>
+Matrix<T> argmax(const Matrix<T>& y)
+{
+    // Your implementation of the argmax function starts here
+}
+
+// Calculate the accuracy of the prediction, using the argmax
+template <typename T>
+T get_accuracy(const Matrix<T>& y_true, const Matrix<T>& y_pred)
+{
+    // Your implementation of the get_accuracy starts here
+}
+
+int main(int argc, char* argv[])
+{
+    // Your training and testing of the Net class starts here
+    Matrix <int> matrix (2, 3);
+    matrix.print();
+    return 0;
+}

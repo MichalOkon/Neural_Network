@@ -3,6 +3,5 @@ project(Neural_Network)
 
 set(CMAKE_CXX_STANDARD 17)
 
-add_executable(Neural_Network main.cpp)
-
 add_subdirectory(Google_tests)
+add_executable(Neural_Network main.cpp)

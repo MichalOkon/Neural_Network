@@ -36,7 +36,7 @@ public:
 
     Matrix(Matrix &other) : data(other.data), rows(other.rows), cols(other.cols) {}
 
-    Matrix(Matrix &&other) noexcept: data(other.data), rows(other.rows), cols(other.cols) {
+    Matrix(Matrix &&other) noexcept : data(std::move(other.data)), rows(other.rows), cols(other.cols) {
         std::destroy(other.data.begin(), other.data.end());
         other.rows = 0;
         other.cols = 0;
@@ -55,7 +55,7 @@ public:
     }
 
     // Move assignment operator
-    Matrix &&operator=(const Matrix &&other) {
+    Matrix& operator=(Matrix &&other)  noexcept {
         if (this != &other) {
             data = other.data;
             rows = other.rows;
@@ -116,18 +116,26 @@ public:
 
     template<typename U>
     Matrix<typename std::common_type<T, U>::type> operator+(const Matrix<U> &B) const {
-        if (B.rows != 1 && (B.rows != this->rows || B.cols != this->cols)) {
+        if (B.rows != 1 && rows != 1 && (B.rows != this->rows || B.cols != this->cols)) {
             throw std::length_error("Matrices' sizes incompatible for addition");
         }
         Matrix<typename std::common_type<T, U>::type> newMatrix = Matrix<typename std::common_type<T, U>::type>(
-                this->rows, this->cols);
+                std::max(this->rows, B.rows), std::max(this->cols, B.cols));
         if (B.rows == 1) {
             for (int i = 0; i < this->rows; i++) {
                 for (int j = 0; j < this->cols; j++) {
                     newMatrix.data[i * cols + j] = this->data[i * cols + j] + B.data[j];
                 }
             }
-        } else {
+        }
+        else if (rows == 1) {
+            for (int i = 0; i < B.rows; i++) {
+                for (int j = 0; j < B.cols; j++) {
+                    newMatrix.data[i * cols + j] = B.data[i * cols + j] + this->data[j];
+                }
+            }
+        }
+        else {
             for (int i = 0; i < this->rows; i++) {
                 for (int j = 0; j < this->cols; j++) {
                     newMatrix.data[i * cols + j] = this->data[i * cols + j] + B.data[i * cols + j];
@@ -142,7 +150,7 @@ public:
         if (B.rows != 1 && (B.rows != this->rows || B.cols != this->cols)) {
             throw std::length_error("Matrices' sizes incompatible for subtraction");
         }
-        Matrix<std::common_type<T, U>> newMatrix = Matrix<std::common_type<T, U>>(this->rows, this->cols);
+        Matrix<typename std::common_type<T, U>::type> newMatrix = Matrix<typename std::common_type<T, U>::type>(this->rows, this->cols);
         if (B.rows == 1) {
             for (int i = 0; i < this->rows; i++) {
                 for (int j = 0; j < this->cols; j++) {
@@ -264,13 +272,20 @@ bool test_matrix() {
     std::cout << "Initializing with list (row-major):" << std::endl;
     matrix2.print();
 
-    std::cout << "Setting values" << std::endl;
-    matrix[std::pair<int, int>(0, 0)] = 9;
-    matrix[std::pair<int, int>(1, 2)] = 7;
+    std::cout << "Copy assignment matrix3 to matrix2:" << std::endl;
+    Matrix<int> copied_matrix = matrix2;
+    copied_matrix.print();
+
+    std::cout << "Move assignment matrix3 to matrix2:" << std::endl;
+    Matrix<int> moved_matrix = Matrix<int>(2, 3, {1, 2, 3, 4, 5, 6});
+    moved_matrix.print();
+
+    std::cout << "Setting values 1 and 2" << std::endl;
+    matrix[std::pair<int, int>(0, 0)] = 1;
+    matrix[std::pair<int, int>(1, 2)] = 2;
     matrix.print();
 
-    std::cout << "Adding vectors:" << std::endl;
-    (matrix + matrix2).print();
+
 
     Matrix<int> vector(3, 1, {1, 2, 3});
     std::cout << "Multiplying vector [1, 2, 3] by matrix [[1, 2, 3], [4, 5, 6]]: " <<std::endl;
@@ -279,6 +294,22 @@ bool test_matrix() {
     Matrix<int> matrix3(3, 2, {1, 2, 3, 4, 5, 6});
     std::cout << "Multiplying matrix by matrix [[1, 2, 3], [4, 5, 6]] * [[1, 2],  [3, 4], [5, 6]]: " <<std::endl;
     (matrix2 * matrix3).print();
+
+    std::cout << "Adding matrices [[1, 2, 3], [4, 5, 6]] and [[1, 0, 0], [0, 0, 2]]:" << std::endl;
+    (matrix + matrix2).print();
+
+    Matrix<int> biasMatrix(1, 3, {1, 2, 3});
+    std::cout << "Adding matrix [[1], [2], [3]] to matrix[[1, 2, 3], [4, 5, 6]]: " << std::endl;
+    (biasMatrix + matrix2).print();
+    std::cout <<"Reverse order of addition" << std::endl;
+    (matrix2 + biasMatrix).print();
+
+    std::cout << "Subtracting matrices [[1, 2, 3], [4, 5, 6]] and [[1, 0, 0], [0, 0, 2]]:" << std::endl;
+    (matrix2 - matrix).print();
+
+    std::cout << "Subtracting vector [[1], [2], [3]] from matrix [[1, 2, 3], [4, 5, 6]]:" << std::endl;
+    (matrix2 - biasMatrix).print();
+
     return true;
 }
 

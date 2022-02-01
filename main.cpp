@@ -104,11 +104,11 @@ public:
         Matrix<typename std::common_type<T, U>::type> newMatrix = Matrix(this->rows, B.cols);
         for (int i = 0; i < this->rows; i++) {
             for (int j = 0; j < B.cols; j++) {
-                typename std::common_type<T, U>::type sum;
+                typename std::common_type<T, U>::type sum = 0;
                 for (int k = 0; k < this->cols; k++) {
-                    sum += this[i][k] * B[k][j];
+                    sum += this->data[i* cols + k] * B.data[k * B.cols + j];
                 }
-                newMatrix[i][j] = sum;
+                newMatrix.data[i * B.cols + j] = sum;
             }
         }
         return newMatrix;
@@ -187,6 +187,25 @@ public:
             std::cout << std::endl;
         }
     }
+
+    std::string toString() const {
+        std::string result = "[";
+        for (int i = 0; i < rows; i++) {
+            result += "[";
+            for (int j = 0; j < cols; j++) {
+                result += this->data[i * cols + j];
+                if (j != cols - 1) {
+                    result += ", ";
+                }
+            }
+            result += "]";
+            if (i != rows - 1) {
+                result += ", ";
+            }
+        }
+        result += "]";
+        return result;
+    }
 };
 
 template<typename T>
@@ -253,6 +272,13 @@ bool test_matrix() {
     std::cout << "Adding vectors:" << std::endl;
     (matrix + matrix2).print();
 
+    Matrix<int> vector(3, 1, {1, 2, 3});
+    std::cout << "Multiplying vector [1, 2, 3] by matrix [[1, 2, 3], [4, 5, 6]]: " <<std::endl;
+    (matrix2 * vector).print();
+
+    Matrix<int> matrix3(3, 2, {1, 2, 3, 4, 5, 6});
+    std::cout << "Multiplying matrix by matrix [[1, 2, 3], [4, 5, 6]] * [[1, 2],  [3, 4], [5, 6]]: " <<std::endl;
+    (matrix2 * matrix3).print();
     return true;
 }
 

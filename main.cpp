@@ -44,6 +44,7 @@ public:
 
     ~Matrix() = default;
 
+    // How to test those two?
     // Copy assignment operator
     Matrix &operator=(const Matrix &other) {
         if (this != &other) {
@@ -77,6 +78,7 @@ public:
         return data[ij.first * cols + ij.second];
     }
 
+    // When is this one used???
     const T &operator[](const std::pair<int, int> &ij) const {
         if (ij.first >= rows) {
             throw std::length_error("Number of rows exceeded");
@@ -89,8 +91,8 @@ public:
 
     template<typename U>
     Matrix<typename std::common_type<T, U>::type> operator*(U x) const {
-        Matrix<typename std::common_type<T, U>::type> newMatrix = Matrix(this->rows, this->columns);
-        for (int i = 0; i < this->data.size; i++) {
+        Matrix<typename std::common_type<T, U>::type> newMatrix = Matrix(this->rows, this->cols);
+        for (int i = 0; i < this->data.size(); i++) {
             newMatrix.data[i] = this->data[i] * x;
         }
         return newMatrix;
@@ -277,7 +279,7 @@ bool test_matrix() {
     copied_matrix.print();
 
     std::cout << "Move assignment matrix3 to matrix2:" << std::endl;
-    Matrix<int> moved_matrix = Matrix<int>(2, 3, {1, 2, 3, 4, 5, 6});
+    Matrix<int> moved_matrix = std::move(Matrix<int>(2, 3, {1, 2, 3, 4, 5, 6}));
     moved_matrix.print();
 
     std::cout << "Setting values 1 and 2" << std::endl;
@@ -287,6 +289,8 @@ bool test_matrix() {
 
 
 
+    std::cout << "Multiplying scalar 2 by matrix [[1, 2, 3], [4, 5, 6]]: " <<std::endl;
+    (matrix2 * 2).print();
     Matrix<int> vector(3, 1, {1, 2, 3});
     std::cout << "Multiplying vector [1, 2, 3] by matrix [[1, 2, 3], [4, 5, 6]]: " <<std::endl;
     (matrix2 * vector).print();
@@ -310,6 +314,13 @@ bool test_matrix() {
     std::cout << "Subtracting vector [[1], [2], [3]] from matrix [[1, 2, 3], [4, 5, 6]]:" << std::endl;
     (matrix2 - biasMatrix).print();
 
+    std::cout << "Adding elements (1, 2) of matrices [[1, 2, 3], [4, 5, 6]] * [[1, 0, 0], [0, 0, 2]]: " <<std::endl;
+    std::cout << (matrix2[std::pair<int, int>(1, 2)] + matrix[std::pair<int, int>(1, 2)])  <<std::endl;
+
+
+    std::cout << "Constant indices test (1,2) of  [[1, 2, 3], [4, 5, 6]]" <<std::endl;
+    const Matrix<int> constant_matrix(2, 3, {1, 2, 3, 4, 5, 6});
+    std::cout << constant_matrix[std::pair<int, int>(1, 2)]  <<std::endl;
     return true;
 }
 

@@ -220,12 +220,86 @@ public:
 
 template<typename T>
 class Layer {
-    // Your implementation of the Layer clas starts here
+
+    virtual Matrix<T> forward(const Matrix<T> &x) = 0;
+
+    virtual Matrix<T> backward(const Matrix<T> &dy) = 0;
+
 };
 
 template<typename T>
 class Linear : public Layer<T> {
-    // Your implementation of the Linear class starts here
+private:
+    Matrix<float> cache;
+    Matrix<float> bias;
+    Matrix<float> weights;
+    Matrix<float> bias_grads;
+    Matrix<float> weight_grads;
+    int n_samples;
+    int in_features;
+    int out_features;
+
+public:
+
+    Linear(const int in_features,
+           const int out_features,
+           const int n_samples,
+           const int seed) : n_samples(n_samples), in_features(in_features), out_features(out_features) {
+
+        std::default_random_engine generator(seed);
+        std::normal_distribution<T> distribution_normal(0.0, 1.0);
+        std::uniform_real_distribution<T> distribution_uniform(0.0, 1.0);
+
+        // create matrices
+        this->weights(in_features, out_features);
+        this->weight_grads(in_features, out_features);
+        this->bias(1, out_features);
+        this->bias_grads(1, out_features);
+        this->cache(n_samples, in_features);
+
+        // set initial weights and weight gradients
+        for (int i = 0; i < in_features; i++) {
+            for (int j = 0; j < out_features; j++) {
+                this->weights[{i, j}] = distribution_normal(generator);
+                this->weight_grads[{i, j}] = 0;
+            }
+        }
+
+        // set initial bias and bias grads
+        for (int i = 0; i < out_features; i++) {
+            this->bias[{0, i}] = distribution_uniform(generator);
+            this->bias_grads[{0, i}] = 0;
+        }
+
+        // set initial cache values
+        for (int i = 0; i < n_samples; i++) {
+            for (int j = 0; j < in_features; j++) {
+                this->cache[{i, j}] = 0;
+            }
+        }
+
+    }
+
+    ~Linear() = default;
+
+    virtual Matrix<T> forward(const Matrix<T> &x) override final {
+
+        for (int i = 0; i < x.getRows(); i++) {
+            for (int j = 0; j < x.getCols(); j++) {
+                // cache the input value
+                this->cache[{i, j}] = x[{i, j}];
+
+                // TODO not sure if this should be bias[0,j] or bias[0,i]
+                x[{i, j}] = x[{i, j}] * this->weights[{i, j}] + this->bias[{0, j}];
+            }
+        }
+
+
+    }
+
+    virtual Matrix<T> backward(const Matrix<T> &dy) override final {
+
+    }
 };
 
 template<typename T>

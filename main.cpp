@@ -6,6 +6,7 @@
 #include <random>
 #include <stdexcept>
 #include <utility>
+#include <cfloat>
 
 
 template<typename T>
@@ -18,9 +19,10 @@ private:
 
 public:
 
-    template<typename U> friend class Matrix;
+    template<typename U> friend
+    class Matrix;
 
-    Matrix(){};
+    Matrix() {};
 
     Matrix(int rows, int cols) : rows(rows), cols(cols) {
         data = std::vector<T>(rows * cols, 0);
@@ -407,8 +409,10 @@ template<typename T>
 T MSEloss(const Matrix<T> &y_true, const Matrix<T> &y_pred) {
     int n = y_true.getCols() * y_pred.getRows();
     double sum = 0;
-    for (int i = 0; i < n; i++) {
-        sum += std::pow((y_true[std::pair<int, int>(0, i)] - y_pred[std::pair<int, int>(0, i)]), 2.0);
+    for (int i = 0; i < y_true.getRows(); i++) {
+        for (int j = 0; j < y_true.getCols(); j++) {
+            sum += std::pow((y_true[std::pair<int, int>(i, j)] - y_pred[std::pair<int, int>(i, j)]), 2.0);
+        }
     }
     double loss = (1.0 / n) * sum;
     return loss;
@@ -418,8 +422,11 @@ T MSEloss(const Matrix<T> &y_true, const Matrix<T> &y_pred) {
 template<typename T>
 Matrix<T> MSEgrad(const Matrix<T> &y_true, const Matrix<T> &y_pred) {
     Matrix<double> gradient(y_true.getRows(), y_true.getCols());
-    for (int i = 0; i < y_true.getCols(); i++) {
-        gradient[std::pair<int, int>(0, i)] = 2 * (y_true[std::pair<int, int>(0, i)] - y_pred[std::pair<int, int>(0, i)]);
+    for (int i = 0; i < y_true.getRows(); i++) {
+        for (int j = 0; j < y_true.getCols(); j++) {
+            gradient[std::pair<int, int>(i, j)] =
+                    2 * (y_true[std::pair<int, int>(i, j)] - y_pred[std::pair<int, int>(i, j)]);
+        }
     }
     return gradient;
 }
@@ -427,22 +434,44 @@ Matrix<T> MSEgrad(const Matrix<T> &y_true, const Matrix<T> &y_pred) {
 // Calculate the argmax
 template<typename T>
 Matrix<T> argmax(const Matrix<T> &y) {
-    // Your implementation of the argmax function starts here
+    Matrix<T> maxMatrix = Matrix<T>(1, y.getRows());
+    for (int i = 0; i < y.getRows(); i++) {
+        int maxColIndex = 0;
+        T maxColValue = y[{i, 0}];
+        for (int j = 1; j < y.getCols(); j++) {
+            T currValue = y[{i, j}];
+            if (currValue > maxColValue) {
+                maxColIndex = j;
+                maxColValue = currValue;
+            }
+        }
+        maxMatrix[std::pair<int, int>(0, i)] = maxColIndex;
+    }
+    return maxMatrix;
 }
 
 // Calculate the accuracy of the prediction, using the argmax
 template<typename T>
 T get_accuracy(const Matrix<T> &y_true, const Matrix<T> &y_pred) {
-    // Your implementation of the get_accuracy starts here
+    auto predIndices = argmax(y_pred);
+    auto trueIndices = argmax(y_true);
+    T n = trueIndices.getCols();
+    int accurateCount = 0;
+    for (int i = 0; i < n; i++) {
+        if (predIndices[{0, i}] == trueIndices[{0, i}]) {
+            accurateCount++;
+        }
+    }
+    T accuracy = (T) accurateCount / n;
+    return accuracy;
 }
 
 template<typename T, typename U>
 Matrix<typename std::common_type<T, U>::type> operator*(T x1, const Matrix<U> &x2) {
     Matrix<typename std::common_type<T, U>::type> newMatrix = Matrix<U>(x2.getRows(), x2.getCols());
-    std::initializer_list<U> list;
     for (int i = 0; i < x2.getRows(); i++) {
         for (int j = 0; j < x2.getCols(); j++) {
-            newMatrix[std::pair<int, int>(i, j)] = x1 * x2[std::pair<int, int>(i, j)];
+            newMatrix[{i, j}] = x1 * x2[{i, j}];
         }
     }
     return newMatrix;
@@ -523,7 +552,7 @@ bool test_matrix() {
     std::cout << "Add matrices of different types (should be 2.7):" << std::endl;
     Matrix<float> floatMatrix = Matrix<float>(1, 1, {1.5});
     Matrix<double> doubleMatrix = Matrix<double>(1, 1, {1.2});
-    (floatMatrix+doubleMatrix).print();
+    (floatMatrix + doubleMatrix).print();
     return true;
 }
 
@@ -557,20 +586,33 @@ bool test_linear() {
 }
 
 
-bool test_MSE(){
+
+bool test_MSE() {
     Matrix<double> y_pred = Matrix<double>(1, 4, {0.7, 1.0, 0.3, 0.0});
     Matrix<double> y_true = Matrix<double>(1, 4, {1.0, 1.0, 1.0, 0.0});
 
-    std::cout<<"Calculate first loss(should be 0.58/4 = 0.145) " << std::to_string(MSEloss(y_true, y_pred)) << std::endl;
-    std::cout<<"Calculate gradient(should be [0.6, 0, 1.4, 0] ) " << (MSEgrad(y_true, y_pred)).toString();
+    std::cout << "Calculate first loss(should be 0.58/4 = 0.145) " << std::to_string(MSEloss(y_true, y_pred))
+              << std::endl;
+    std::cout << "Calculate gradient(should be [0.6, 0, 1.4, 0] ) " << (MSEgrad(y_true, y_pred)).toString()
+              << std::endl;
+    return true;
+}
+
+bool test_accuracy() {
+    Matrix<double> y_pred = Matrix<double>(2, 2, {0.0, 1.0, 1.0, 0.0});
+    Matrix<double> y_true = Matrix<double>(2, 2, {1.0, 0.0, 1.0, 0.0});
+
+    std::cout << "Calculate the argmax (should be [1, 0]) " << argmax(y_pred).toString() << std::endl;
+    std::cout << "Calculate accuracy (should be 0.5): " << std::to_string(get_accuracy(y_true, y_pred))
+              << std::endl;
     return true;
 }
 
 int main(int argc, char *argv[]) {
     // Your training and testing of the Net class starts here
-    // Testing the matrix
-    // test_matrix();
-    // test_MSE();
     test_linear();
+    test_matrix();
+    test_MSE();
+    test_accuracy();
     return 0;
 }

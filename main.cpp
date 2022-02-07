@@ -7,6 +7,7 @@
 #include <stdexcept>
 #include <utility>
 
+
 template<typename T>
 class Matrix {
 private:
@@ -16,6 +17,8 @@ private:
     int cols;
 
 public:
+
+    template<typename U> friend class Matrix;
 
     Matrix(){};
 
@@ -312,9 +315,9 @@ class Net {
 template<typename T>
 T MSEloss(const Matrix<T> &y_true, const Matrix<T> &y_pred) {
     int n = y_true.getCols() * y_pred.getRows();
-    int sum = 0;
+    double sum = 0;
     for (int i = 0; i < n; i++) {
-        sum += std::pow((y_true(std::pair<int, int>(0, i)) - y_pred(std::pair<int, int>(0, i))), 2);
+        sum += std::pow((y_true[std::pair<int, int>(0, i)] - y_pred[std::pair<int, int>(0, i)]), 2.0);
     }
     double loss = (1.0 / n) * sum;
     return loss;
@@ -325,7 +328,7 @@ template<typename T>
 Matrix<T> MSEgrad(const Matrix<T> &y_true, const Matrix<T> &y_pred) {
     Matrix<double> gradient(y_true.getRows(), y_true.getCols());
     for (int i = 0; i < y_true.getCols(); i++) {
-        gradient[std::pair<int, int>(0, i)] = 2 * (y_true(std::pair<int, int>(0, i)) - y_pred(std::pair<int, int>(0, i)));
+        gradient[std::pair<int, int>(0, i)] = 2 * (y_true[std::pair<int, int>(0, i)] - y_pred[std::pair<int, int>(0, i)]);
     }
     return gradient;
 }
@@ -426,6 +429,19 @@ bool test_matrix() {
     std::cout << "Empty constructor:" << std::endl;
     Matrix<int> emptyMatrix;
 
+    std::cout << "Add matrices of different types (should be 2.7):" << std::endl;
+    Matrix<float> floatMatrix = Matrix<float>(1, 1, {1.5});
+    Matrix<double> doubleMatrix = Matrix<double>(1, 1, {1.2});
+    (floatMatrix+doubleMatrix).print();
+    return true;
+}
+
+bool test_MSE(){
+    Matrix<double> y_pred = Matrix<double>(1, 4, {0.7, 1.0, 0.3, 0.0});
+    Matrix<double> y_true = Matrix<double>(1, 4, {1.0, 1.0, 1.0, 0.0});
+
+    std::cout<<"Calculate first loss(should be 0.58/4 = 0.145) " << std::to_string(MSEloss(y_true, y_pred)) << std::endl;
+    std::cout<<"Calculate gradient(should be [0.6, 0, 1.4, 0] ) " << (MSEgrad(y_true, y_pred)).toString();
     return true;
 }
 
@@ -433,5 +449,6 @@ int main(int argc, char *argv[]) {
     // Your training and testing of the Net class starts here
     // Testing the matrix
     test_matrix();
+    test_MSE();
     return 0;
 }

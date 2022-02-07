@@ -17,12 +17,14 @@ private:
 
 public:
 
+    Matrix(){};
+
     Matrix(int rows, int cols) : rows(rows), cols(cols) {
         data = std::vector<T>(rows * cols, 0);
     }
 
     Matrix(int rows, int cols, const std::initializer_list<T> &list) : rows(rows), cols(cols) {
-        if (rows * cols != (int)list.size()) {
+        if (rows * cols != (int) list.size()) {
             throw std::length_error(
                     "The number of columns and rows does not match the given list in the matrix construction");
         }
@@ -87,7 +89,7 @@ public:
     template<typename U>
     Matrix<typename std::common_type<T, U>::type> operator*(U x) const {
         Matrix<typename std::common_type<T, U>::type> newMatrix = Matrix(this->rows, this->cols);
-        for (int i = 0; i < (int)this->data.size(); i++) {
+        for (int i = 0; i < (int) this->data.size(); i++) {
             newMatrix.data[i] = this->data[i] * x;
         }
         return newMatrix;
@@ -309,13 +311,23 @@ class Net {
 // Function to calculate the loss
 template<typename T>
 T MSEloss(const Matrix<T> &y_true, const Matrix<T> &y_pred) {
-    // Your implementation of the MSEloss function starts here
+    int n = y_true.getCols() * y_pred.getRows();
+    int sum = 0;
+    for (int i = 0; i < n; i++) {
+        sum += std::pow((y_true(std::pair<int, int>(0, i)) - y_pred(std::pair<int, int>(0, i))), 2);
+    }
+    double loss = (1.0 / n) * sum;
+    return loss;
 }
 
 // Function to calculate the gradients of the loss
 template<typename T>
 Matrix<T> MSEgrad(const Matrix<T> &y_true, const Matrix<T> &y_pred) {
-    // Your implementation of the MSEgrad function starts here
+    Matrix<double> gradient(y_true.getRows(), y_true.getCols());
+    for (int i = 0; i < y_true.getCols(); i++) {
+        gradient[std::pair<int, int>(0, i)] = 2 * (y_true(std::pair<int, int>(0, i)) - y_pred(std::pair<int, int>(0, i)));
+    }
+    return gradient;
 }
 
 // Calculate the argmax
@@ -358,8 +370,9 @@ bool test_matrix() {
     Matrix<int> copied_matrix = matrix2;
     copied_matrix.print();
 
+    Matrix<int> movedMatrix = Matrix<int>(2, 3, {1, 2, 3, 4, 5, 6});
     std::cout << "Move assignment matrix3 to matrix2:" << std::endl;
-    Matrix<int> moved_matrix = std::move(Matrix<int>(2, 3, {1, 2, 3, 4, 5, 6}));
+    Matrix<int> moved_matrix = std::move(movedMatrix);
     moved_matrix.print();
 
     std::cout << "Setting values 1 and 2" << std::endl;
@@ -409,6 +422,9 @@ bool test_matrix() {
     matrix = std::move(matrix3);
     std::cout << "Moving matrix3 into matrix. Matrix: " << matrix.toString() << "Matrix3: " << matrix3.toString()
               << std::endl;
+
+    std::cout << "Empty constructor:" << std::endl;
+    Matrix<int> emptyMatrix;
 
     return true;
 }

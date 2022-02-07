@@ -229,11 +229,11 @@ class Layer {
 template<typename T>
 class Linear : public Layer<T> {
 private:
-    Matrix<float> cache;
-    Matrix<float> bias;
-    Matrix<float> weights;
-    Matrix<float> bias_grads;
-    Matrix<float> weight_grads;
+    Matrix<T> cache;
+    Matrix<T> bias_grads;
+    Matrix<T> weight_grads;
+    Matrix<T> weights;
+    Matrix<T> bias;
     int n_samples;
     int in_features;
     int out_features;
@@ -250,11 +250,11 @@ public:
         std::uniform_real_distribution<T> distribution_uniform(0.0, 1.0);
 
         // create matrices
-        this->weights(in_features, out_features);
-        this->weight_grads(in_features, out_features);
-        this->bias(1, out_features);
-        this->bias_grads(1, out_features);
-        this->cache(n_samples, in_features);
+        this->weights = Matrix<T>(in_features, out_features);
+        this->weight_grads = Matrix<T>(in_features, out_features);
+        this->bias = Matrix<T>(1, out_features);
+        this->bias_grads = Matrix<T>(1, out_features);
+        this->cache = Matrix<T>(n_samples, in_features);
 
         // set initial weights and weight gradients
         for (int i = 0; i < in_features; i++) {
@@ -283,27 +283,118 @@ public:
 
     virtual Matrix<T> forward(const Matrix<T> &x) override final {
 
-        for (int i = 0; i < x.getRows(); i++) {
-            for (int j = 0; j < x.getCols(); j++) {
-                // cache the input value
-                this->cache[{i, j}] = x[{i, j}];
+        Matrix<T> out(1, this->out_features);
 
-                // TODO not sure if this should be bias[0,j] or bias[0,i]
-                x[{i, j}] = x[{i, j}] * this->weights[{i, j}] + this->bias[{0, j}];
+        for (int i = 0; i < this->out_features; i++) {
+
+            T activation = 0;
+
+            for (int w_i = 0; w_i < this->in_features; w_i++) {
+                activation += this->weights[{w_i, i}] * x[{0,w_i}];
             }
+
+            activation += this->bias[{0,i}];
+
+            out[{0,i}] = activation;
         }
 
-
+        return out;
     }
 
     virtual Matrix<T> backward(const Matrix<T> &dy) override final {
-
+        Matrix<T> out(1, this->in_features);
+        return out;
     }
+
 };
 
 template<typename T>
 class ReLU : public Layer<T> {
-    // Your implementation of the ReLU class starts here
+
+private:
+    Matrix<T> cache;
+    Matrix<T> bias_grads;
+    Matrix<T> weight_grads;
+    Matrix<T> weights;
+    Matrix<T> bias;
+    int n_samples;
+    int in_features;
+    int out_features;
+
+public:
+
+    ReLU(const int in_features,
+         const int out_features,
+         const int n_samples,
+         const int seed) : n_samples(n_samples), in_features(in_features), out_features(out_features) {
+
+        std::default_random_engine generator(seed);
+        std::normal_distribution<T> distribution_normal(0.0, 1.0);
+        std::uniform_real_distribution<T> distribution_uniform(0.0, 1.0);
+
+        // create matrices
+        this->weights = Matrix<T>(in_features, out_features);
+        this->weight_grads = Matrix<T>(in_features, out_features);
+        this->bias = Matrix<T>(1, out_features);
+        this->bias_grads = Matrix<T>(1, out_features);
+        this->cache = Matrix<T>(n_samples, in_features);
+
+        // set initial weights and weight gradients
+        for (int i = 0; i < in_features; i++) {
+            for (int j = 0; j < out_features; j++) {
+                this->weights[{i, j}] = distribution_normal(generator);
+                this->weight_grads[{i, j}] = 0;
+            }
+        }
+
+        // set initial bias and bias grads
+        for (int i = 0; i < out_features; i++) {
+            this->bias[{0, i}] = distribution_uniform(generator);
+            this->bias_grads[{0, i}] = 0;
+        }
+
+        // set initial cache values
+        for (int i = 0; i < n_samples; i++) {
+            for (int j = 0; j < in_features; j++) {
+                this->cache[{i, j}] = 0;
+            }
+        }
+
+    }
+
+    ~ReLU() = default;
+
+    virtual Matrix<T> forward(const Matrix<T> &x) override final {
+
+        Matrix<T> out(1, this->out_features);
+
+        for (int i = 0; i < this->out_features; i++) {
+
+            // perform weighted sum
+            T activation = 0;
+            for (int w_i = 0; w_i < this->in_features; w_i++) {
+                activation += this->weights[{w_i, i}] * x[{0,w_i}];
+            }
+
+            // add bias
+            activation += this->bias[{0,i}];
+
+            // apply ReLU nonlinearity
+            activation = activation > 0 ? activation : 0;
+
+            out[{0,i}] = activation;
+        }
+
+        return out;
+    }
+
+    virtual Matrix<T> backward(const Matrix<T> &dy) override final {
+        Matrix<T> out(1, this->in_features);
+        return out;
+    }
+
+
+
 };
 
 template<typename T>
@@ -436,6 +527,36 @@ bool test_matrix() {
     return true;
 }
 
+bool test_linear() {
+//    Matrix<int> matrix(2, 3);
+
+    // make layer
+    Linear<double> l(3, 2, 1, 0);
+
+    std::cout << "weights" << std::endl;
+    // l.weights.print();
+
+    std::cout << "biases" << std::endl;
+    // l.bias.print();
+
+    // input
+    Matrix<double> x(1, 3);
+    x[{0, 0}] = 1;
+    x[{0, 1}] = 2;
+    x[{0, 2}] = 3;
+
+    std::cout << "input" << std::endl;
+    x.print();
+
+    Matrix<double> out = l.forward(x);
+
+    std::cout << "output" << std::endl;
+    out.print();
+
+    return true;
+}
+
+
 bool test_MSE(){
     Matrix<double> y_pred = Matrix<double>(1, 4, {0.7, 1.0, 0.3, 0.0});
     Matrix<double> y_true = Matrix<double>(1, 4, {1.0, 1.0, 1.0, 0.0});
@@ -448,7 +569,8 @@ bool test_MSE(){
 int main(int argc, char *argv[]) {
     // Your training and testing of the Net class starts here
     // Testing the matrix
-    test_matrix();
-    test_MSE();
+    // test_matrix();
+    // test_MSE();
+    test_linear();
     return 0;
 }

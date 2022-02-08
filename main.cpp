@@ -6,13 +6,13 @@
 #include <random>
 #include <stdexcept>
 #include <utility>
-#include <cfloat>
 
 
 template<typename T>
 class Matrix {
 private:
 
+    // Data held in row-major notation
     std::vector<T> data;
     int rows;
     int cols;
@@ -24,21 +24,25 @@ public:
 
     Matrix() {};
 
+    // Initializes new matrix with 0s
     Matrix(int rows, int cols) : rows(rows), cols(cols) {
         data = std::vector<T>(rows * cols, 0);
     }
 
+    // Initializes new matrix with values from the initializer_list
     Matrix(int rows, int cols, const std::initializer_list<T> &list) : rows(rows), cols(cols) {
         if (rows * cols != (int) list.size()) {
             throw std::length_error(
                     "The number of columns and rows does not match the given list in the matrix construction");
         }
-        // Check if that actually works
+
         data = std::vector(list);
     }
 
+    // Copy constructor
     Matrix(Matrix &other) : data(other.data), rows(other.rows), cols(other.cols) {}
 
+    // Move constructor
     Matrix(Matrix &&other) noexcept: data(std::move(other.data)), rows(other.rows), cols(other.cols) {
         std::destroy(other.data.begin(), other.data.end());
         other.rows = 0;
@@ -47,7 +51,6 @@ public:
 
     ~Matrix() = default;
 
-    // How to test those two?
     // Copy assignment operator
     Matrix &operator=(const Matrix &other) {
         if (this != &other) {
@@ -70,6 +73,7 @@ public:
         return *this;
     }
 
+    // Returns value at the position (i, j)
     T &operator[](const std::pair<int, int> &ij) {
         if (ij.first >= rows) {
             throw std::length_error("Number of rows exceeded");
@@ -80,7 +84,7 @@ public:
         return data[ij.first * cols + ij.second];
     }
 
-    // When is this one used???
+    // Returns value at the position (i, j) as a constant
     const T &operator[](const std::pair<int, int> &ij) const {
         if (ij.first >= rows) {
             throw std::length_error("Number of rows exceeded");
@@ -91,23 +95,25 @@ public:
         return data[ij.first * cols + ij.second];
     }
 
+    // Matrix-scalar multiplication
     template<typename U>
     Matrix<typename std::common_type<T, U>::type> operator*(U x) const {
-        Matrix<typename std::common_type<T, U>::type> newMatrix = Matrix(this->rows, this->cols);
+        Matrix<typename std::common_type<T, U>::type> newMatrix(this->rows, this->cols);
         for (int i = 0; i < (int) this->data.size(); i++) {
             newMatrix.data[i] = this->data[i] * x;
         }
         return newMatrix;
     }
 
+    // Matrix-matrix multiplication
     template<typename U>
     Matrix<typename std::common_type<T, U>::type> operator*(const Matrix<U> &B) const {
-        if (this->cols != B.rows) {
+        if (this->cols != B.getRows()) {
             throw std::length_error("Matrices' sizes incompatible for multiplication");
         }
-        Matrix<typename std::common_type<T, U>::type> newMatrix = Matrix(this->rows, B.cols);
+        Matrix<typename std::common_type<T, U>::type> newMatrix(this->rows, B.getCols());
         for (int i = 0; i < this->rows; i++) {
-            for (int j = 0; j < B.cols; j++) {
+            for (int j = 0; j < B.getCols(); j++) {
                 typename std::common_type<T, U>::type sum = 0;
                 for (int k = 0; k < this->cols; k++) {
                     sum += this->data[i * cols + k] * B.data[k * B.cols + j];
@@ -118,13 +124,15 @@ public:
         return newMatrix;
     }
 
+    // Matrix-matrix addition
     template<typename U>
     Matrix<typename std::common_type<T, U>::type> operator+(const Matrix<U> &B) const {
         if (B.rows != 1 && rows != 1 && (B.rows != this->rows || B.cols != this->cols)) {
             throw std::length_error("Matrices' sizes incompatible for addition");
         }
-        Matrix<typename std::common_type<T, U>::type> newMatrix = Matrix<typename std::common_type<T, U>::type>(
-                std::max(this->rows, B.rows), std::max(this->cols, B.cols));
+        Matrix<typename std::common_type<T, U>::type> newMatrix(std::max(this->rows, B.rows),
+                                                                std::max(this->cols, B.cols));
+        // Consider special cases where one vector is a bias vector and needs to be broadcast
         if (B.rows == 1) {
             for (int i = 0; i < this->rows; i++) {
                 for (int j = 0; j < this->cols; j++) {
@@ -147,13 +155,14 @@ public:
         return newMatrix;
     }
 
+    // Matrix-matrix subtraction
     template<typename U>
     Matrix<typename std::common_type<T, U>::type> operator-(const Matrix<U> &B) const {
         if (B.rows != 1 && (B.rows != this->rows || B.cols != this->cols)) {
             throw std::length_error("Matrices' sizes incompatible for subtraction");
         }
-        Matrix<typename std::common_type<T, U>::type> newMatrix = Matrix<typename std::common_type<T, U>::type>(
-                this->rows, this->cols);
+        Matrix<typename std::common_type<T, U>::type> newMatrix(this->rows, this->cols);
+        // Consider the special where the second vector is a bias vector and needs to be broadcast
         if (B.rows == 1) {
             for (int i = 0; i < this->rows; i++) {
                 for (int j = 0; j < this->cols; j++) {
@@ -170,6 +179,7 @@ public:
         return newMatrix;
     }
 
+    // Transpose the matrix
     Matrix transpose() const {
         Matrix<T> transposedMatrix(cols, rows);
         for (int i = 0; i < rows; i++) {
@@ -181,15 +191,17 @@ public:
         return transposedMatrix;
     }
 
+    // Return the number of rows in the matrix
     int getRows() const {
         return rows;
     }
 
+    // Return the number of colums in the matrix
     int getCols() const {
         return cols;
     }
 
-    // For debugging
+    // For debugging, prints the matrix
     void print() const {
         for (int i = 0; i < rows; i++) {
             for (int j = 0; j < cols; j++) {
@@ -199,6 +211,7 @@ public:
         }
     }
 
+    // Returns the matrix as a string
     std::string toString() const {
         std::string result = "[";
         for (int i = 0; i < rows; i++) {
@@ -292,12 +305,12 @@ public:
             T activation = 0;
 
             for (int w_i = 0; w_i < this->in_features; w_i++) {
-                activation += this->weights[{w_i, i}] * x[{0,w_i}];
+                activation += this->weights[{w_i, i}] * x[{0, w_i}];
             }
 
-            activation += this->bias[{0,i}];
+            activation += this->bias[{0, i}];
 
-            out[{0,i}] = activation;
+            out[{0, i}] = activation;
         }
 
         return out;
@@ -375,16 +388,16 @@ public:
             // perform weighted sum
             T activation = 0;
             for (int w_i = 0; w_i < this->in_features; w_i++) {
-                activation += this->weights[{w_i, i}] * x[{0,w_i}];
+                activation += this->weights[{w_i, i}] * x[{0, w_i}];
             }
 
             // add bias
-            activation += this->bias[{0,i}];
+            activation += this->bias[{0, i}];
 
             // apply ReLU nonlinearity
             activation = activation > 0 ? activation : 0;
 
-            out[{0,i}] = activation;
+            out[{0, i}] = activation;
         }
 
         return out;
@@ -394,7 +407,6 @@ public:
         Matrix<T> out(1, this->in_features);
         return out;
     }
-
 
 
 };
@@ -431,7 +443,7 @@ Matrix<T> MSEgrad(const Matrix<T> &y_true, const Matrix<T> &y_pred) {
     return gradient;
 }
 
-// Calculate the argmax
+// Calculate the one-row matrix containing the index of the column with the highest value in each row
 template<typename T>
 Matrix<T> argmax(const Matrix<T> &y) {
     Matrix<T> maxMatrix = Matrix<T>(1, y.getRows());
@@ -466,9 +478,10 @@ T get_accuracy(const Matrix<T> &y_true, const Matrix<T> &y_pred) {
     return accuracy;
 }
 
+// Scalar-matrix multiplication
 template<typename T, typename U>
 Matrix<typename std::common_type<T, U>::type> operator*(T x1, const Matrix<U> &x2) {
-    Matrix<typename std::common_type<T, U>::type> newMatrix = Matrix<U>(x2.getRows(), x2.getCols());
+    Matrix<typename std::common_type<T, U>::type> newMatrix(x2.getRows(), x2.getCols());
     for (int i = 0; i < x2.getRows(); i++) {
         for (int j = 0; j < x2.getCols(); j++) {
             newMatrix[{i, j}] = x1 * x2[{i, j}];
@@ -549,10 +562,16 @@ bool test_matrix() {
     std::cout << "Empty constructor:" << std::endl;
     Matrix<int> emptyMatrix;
 
-    std::cout << "Add matrices of different types (should be 2.7):" << std::endl;
-    Matrix<float> floatMatrix = Matrix<float>(1, 1, {1.5});
-    Matrix<double> doubleMatrix = Matrix<double>(1, 1, {1.2});
+    std::cout << "Add matrices of different types (should be 4.5):" << std::endl;
+    Matrix<float> floatMatrix = Matrix<float>(1, 1, {2.0});
+    Matrix<double> doubleMatrix = Matrix<double>(1, 1, {2.5});
     (floatMatrix + doubleMatrix).print();
+
+    std::cout << "Multiplying matrices of different types (should be 5.0):" << std::endl;
+    (floatMatrix * doubleMatrix).print();
+
+    std::cout << "Subtracting matrices of different types (should be -0.5):" << std::endl;
+    (floatMatrix - doubleMatrix).print();
     return true;
 }
 
@@ -584,7 +603,6 @@ bool test_linear() {
 
     return true;
 }
-
 
 
 bool test_MSE() {

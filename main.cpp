@@ -298,26 +298,25 @@ public:
 
     virtual Matrix<T> forward(const Matrix<T> &x) override final {
 
-        Matrix<T> out(1, this->out_features);
+        // cache input value for backpropagation
+        this->cache = x;
 
-        for (int i = 0; i < this->out_features; i++) {
-
-            T activation = 0;
-
-            for (int w_i = 0; w_i < this->in_features; w_i++) {
-                activation += this->weights[{w_i, i}] * x[{0, w_i}];
-            }
-
-            activation += this->bias[{0, i}];
-
-            out[{0, i}] = activation;
-        }
-
-        return out;
+        return x * this->weights + this->bias;
     }
 
     virtual Matrix<T> backward(const Matrix<T> &dy) override final {
-        Matrix<T> out(1, this->in_features);
+        // update the weights gradient, element-wise multiplication, multiply each gradient
+        this->weight_grads = this->cache.transpose() * dy;
+        // update the bias gradient
+        for (int i = 0; i < (int) dy.getCols(); i++) {
+            T sum = 0;
+            for (int j = 0; j < (int) dy.getRows(); j++) {
+                sum += dy[{j, i}];
+            }
+            this->bias_grads[{0, i}] = sum;
+        }
+        Matrix<T> out = dy * this->weights.transpose();
+        // calculate the downstream gradient and return it
         return out;
     }
 
@@ -404,11 +403,51 @@ public:
     }
 
     virtual Matrix<T> backward(const Matrix<T> &dy) override final {
-        Matrix<T> out(1, this->in_features);
+
+        // update the weights gradient, element-wise multiplication, multiply each gradient
+        Matrix<T> cache_transposed = this->cache.transpose();
+        for(int i = 0; i < cache_transposed.getRows(); i++) {
+            for(int j = 0; j < dy.getCols(); j++) {
+                T sum = 0;
+                for(int k = 0; cache_transposed.getCols(); k++) {
+                    if (dy > 0) {
+                        T derivative = cache_transposed[{i, k}] * dy[{k, j}];
+                        sum += derivative;
+                    }
+                }
+                this->weight_grads[{i, j}] = sum;
+            }
+        }
+
+        // update the bias gradient
+        for (int i = 0; i < (int) dy.getCols(); i++) {
+            T sum = 0;
+            for (int j = 0; j < (int) dy.getRows(); j++) {
+                if(dy[{j, i}] > 0) {
+                    sum += dy[{j, i}];
+                }
+            }
+            this->bias_grads[{0, i}] = sum;
+        }
+
+        // calculate the downstream gradient and return it
+        Matrix<T> weights_transposed = this->weights.transpose();
+        Matrix<T> out (dy.getRows(), weights_transposed.getCols());
+        for(int i = 0; i < dy.getRows(); i++) {
+            for(int j = 0; j < weights_transposed.getCols(); j++) {
+                T sum = 0;
+                for(int k = 0; dy.getCols(); k++) {
+                    if (dy[{i, k}]> 0) {
+                        T derivative = dy[{i, k}] * weights_transposed[{k, j}];
+                        sum += derivative;
+                    }
+                }
+                out[{i, j}] = sum;
+            }
+        }
+
         return out;
     }
-
-
 };
 
 template<typename T>

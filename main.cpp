@@ -247,8 +247,6 @@ private:
     Matrix<T> cache;
     Matrix<T> bias_grads;
     Matrix<T> weight_grads;
-    Matrix<T> weights;
-    Matrix<T> bias;
     int n_samples;
     int in_features;
     int out_features;
@@ -320,6 +318,8 @@ public:
         return out;
     }
 
+    Matrix<T> weights;
+    Matrix<T> bias;
 };
 
 template<typename T>
@@ -379,24 +379,17 @@ public:
     ~ReLU() = default;
 
     virtual Matrix<T> forward(const Matrix<T> &x) override final {
+        // cache input value for backpropagation
+        this->cache = x;
 
-        Matrix<T> out(1, this->out_features);
-
-        for (int i = 0; i < this->out_features; i++) {
-
-            // perform weighted sum
-            T activation = 0;
-            for (int w_i = 0; w_i < this->in_features; w_i++) {
-                activation += this->weights[{w_i, i}] * x[{0, w_i}];
+        // apply reLu nonlinearity
+        Matrix<T> out =  x * this->weights + this->bias;
+        for (int i=0; i<out.getRows(); i++) {
+            for (int j=0; j<out.getCols(); j++) {
+                if (out[{i,j}] < 0) {
+                    out[{i,j}] = 0;
+                }
             }
-
-            // add bias
-            activation += this->bias[{0, i}];
-
-            // apply ReLU nonlinearity
-            activation = activation > 0 ? activation : 0;
-
-            out[{0, i}] = activation;
         }
 
         return out;
@@ -621,10 +614,10 @@ bool test_linear() {
     Linear<double> l(3, 2, 1, 0);
 
     std::cout << "weights" << std::endl;
-    // l.weights.print();
+     l.weights.print();
 
     std::cout << "biases" << std::endl;
-    // l.bias.print();
+     l.bias.print();
 
     // input
     Matrix<double> x(1, 3);
@@ -642,7 +635,6 @@ bool test_linear() {
 
     return true;
 }
-
 
 bool test_MSE() {
     Matrix<double> y_pred = Matrix<double>(1, 4, {0.7, 1.0, 0.3, 0.0});
@@ -668,8 +660,8 @@ bool test_accuracy() {
 int main(int argc, char *argv[]) {
     // Your training and testing of the Net class starts here
     test_linear();
-    test_matrix();
-    test_MSE();
-    test_accuracy();
+//    test_matrix();
+//    test_MSE();
+//    test_accuracy();
     return 0;
 }

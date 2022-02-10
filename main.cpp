@@ -318,6 +318,11 @@ public:
         return out;
     }
 
+    void optimize(T learning_rate) {
+        this->weights -= weight_grads * learning_rate;
+        this->bias -= bias_grads * learning_rate;
+    }
+
     Matrix<T> weights;
     Matrix<T> bias;
 };
@@ -339,10 +344,9 @@ public:
 
     ReLU(const int in_features,
          const int out_features,
-         const int n_samples,
-         const int seed) : n_samples(n_samples), in_features(in_features), out_features(out_features) {
+         const int n_samples) : n_samples(n_samples), in_features(in_features), out_features(out_features) {
 
-        std::default_random_engine generator(seed);
+        std::default_random_engine generator(1);
         std::normal_distribution<T> distribution_normal(0.0, 1.0);
         std::uniform_real_distribution<T> distribution_uniform(0.0, 1.0);
 
@@ -445,7 +449,36 @@ public:
 
 template<typename T>
 class Net {
-    // Your implementation of the Net class starts here
+
+public:
+
+    Linear<T> in_layer;
+    ReLU<T> hidden_layer;
+    Linear<T> out_layer;
+
+    Net(int in_features, int hidden_dim, int out_features, int n_samples, int seed) {
+        this->in_layer = Linear<T>(in_features, hidden_dim, n_samples, seed);
+        this->hidden = ReLU<T>(hidden_dim, hidden_dim, n_samples);
+        this->out_layer = Linear<T>(hidden_dim, out_features, n_samples);
+    }
+
+    ~Net() = default;
+
+    Matrix<T> forward(const Matrix<T>& x) {
+        Matrix<T> x_cp(x);
+        x_cp = in_layer.forward();
+        x_cp = hidden_layer.forward();
+        x_cp = out_layer.forward();
+        return x_cp;
+    }
+
+    Matrix<T> backward(const Matrix<T>& dy) {
+
+    }
+
+    void optimize(T learning_rate) {
+
+    }
 };
 
 // Function to calculate the loss

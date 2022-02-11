@@ -40,7 +40,7 @@ public:
     }
 
     // Copy constructor
-    Matrix(Matrix &other) : data(other.data), rows(other.rows), cols(other.cols) {}
+    Matrix(const Matrix &other) : data(other.data), rows(other.rows), cols(other.cols) {}
 
     // Move constructor
     Matrix(Matrix &&other) noexcept: data(std::move(other.data)), rows(other.rows), cols(other.cols) {

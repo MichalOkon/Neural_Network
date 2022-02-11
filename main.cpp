@@ -450,7 +450,7 @@ Matrix<T> MSEgrad(const Matrix<T> &y_true, const Matrix<T> &y_pred) {
     Matrix<double> gradient(y_true.getRows(), y_true.getCols());
     for (int i = 0; i < y_true.getRows(); i++) {
         for (int j = 0; j < y_true.getCols(); j++) {
-            gradient[{i, j}] = 2 * (y_true[{i, j}] - y_pred[{i, j}]);
+            gradient[{i, j}] = 2 * (y_pred[{i, j}] - y_true[{i, j}]);
         }
     }
     return gradient;
@@ -646,7 +646,7 @@ int main(int argc, char *argv[]) {
     // test_accuracy();
 
     double learning_rate = 0.0005;
-    int optimizer_steps = 100;
+    int optimizer_steps = 200;
     int seed = 1;
 
     int in_features = 2;
@@ -680,7 +680,6 @@ int main(int argc, char *argv[]) {
 
         double accuracy = get_accuracy(y_true, y_pred);
         std::cout << accuracy << std::endl;
-
         net.backward(mse_grad);
         net.optimize(learning_rate);
     }

@@ -319,8 +319,8 @@ public:
     }
 
     void optimize(T learning_rate) {
-        this->weights -= weight_grads * learning_rate;
-        this->bias -= bias_grads * learning_rate;
+        this->weights = this->weights - weight_grads * learning_rate;
+        this->bias = this->bias - bias_grads * learning_rate;
     }
 
     Matrix<T> weights;
@@ -361,13 +361,11 @@ public:
         this->cache = x;
 
         // apply reLu nonlinearity
-        Matrix<T> out = Matrix<T>(x.getRows(), x.getCols());
-        for (int i = 0; i < out.getRows(); i++) {
-            for (int j = 0; j < out.getCols(); j++) {
-                if (x[{i, j}] < 0) {
-                    out[{i, j}] = 0;
-                } else {
-                    out[{i, j}] = x[{i, j}];
+        Matrix<T> out = x;
+        for (int row = 0; row < out.getRows(); row++) {
+            for (int col = 0; col < out.getCols(); col++) {
+                if (x[{row, col}] < 0) {
+                    out[{row, col}] = 0;
                 }
             }
         }
@@ -377,13 +375,14 @@ public:
 
     virtual Matrix<T> backward(const Matrix<T> &dy) override final {
 
-        Matrix<T> out = Matrix<T>(dy.getRows(), dy.getCols());
-        for (int i = 0; i < out.getRows(); i++) {
-            for (int j = 0; j < out.getCols(); j++) {
-                if (dy[{i, j}] < 0) {
-                    out[{i, j}] = 0;
+        Matrix<T> out = dy;
+
+        for (int row = 0; row < out.getRows(); row++) {
+            for (int col = 0; col < out.getCols(); col++) {
+                if (dy[{row, col}] < 0) {
+                    out[{row, col}] = 0;
                 } else {
-                    out[{i, j}] = 1;
+                    out[{row, col}] *= 1;
                 }
             }
         }
@@ -451,8 +450,7 @@ Matrix<T> MSEgrad(const Matrix<T> &y_true, const Matrix<T> &y_pred) {
     Matrix<double> gradient(y_true.getRows(), y_true.getCols());
     for (int i = 0; i < y_true.getRows(); i++) {
         for (int j = 0; j < y_true.getCols(); j++) {
-            gradient[std::pair<int, int>(i, j)] =
-                    2 * (y_true[std::pair<int, int>(i, j)] - y_pred[std::pair<int, int>(i, j)]);
+            gradient[{i, j}] = 2 * (y_true[{i, j}] - y_pred[{i, j}]);
         }
     }
     return gradient;
@@ -482,7 +480,7 @@ template<typename T>
 T get_accuracy(const Matrix<T> &y_true, const Matrix<T> &y_pred) {
     auto predIndices = argmax(y_pred);
     auto trueIndices = argmax(y_true);
-    T n = trueIndices.getCols();
+    int n = trueIndices.getCols();
     int accurateCount = 0;
     for (int i = 0; i < n; i++) {
         if (predIndices[{0, i}] == trueIndices[{0, i}]) {
@@ -654,23 +652,44 @@ int main(int argc, char *argv[]) {
     int in_features = 2;
     int hidden_dim = 100;
     int out_features = 2;
-    Net<double> net(in_features, hidden_dim, out_features, 8, 1);
+    Net<double> net(in_features, hidden_dim, out_features, 4, seed);
 
     Matrix<double> x_xor(4, 2);
     x_xor[{1, 1}] = 1;
     x_xor[{2, 0}] = 1;
     x_xor[{3, 0}] = 1;
     x_xor[{3, 1}] = 1;
+    std::cout << "x_xor" << std::endl;
+    x_xor.print();
 
-    Matrix<double> y_xor(4, 2);
-    x_xor[{0, 0}] = 1;
-    x_xor[{1, 1}] = 1;
-    x_xor[{2, 1}] = 1;
-    x_xor[{3, 0}] = 1;
+    Matrix<double> y_true(4, 2);
+    y_true[{0, 0}] = 1;
+    y_true[{1, 1}] = 1;
+    y_true[{2, 1}] = 1;
+    y_true[{3, 0}] = 1;
+    std::cout << "y_true" << std::endl;
+    y_true.print();
 
-    net.forward(x_xor);
-    net.backward(x_xor);
+    std::cout << std::endl;
 
+    // optimize
+    for (int i=0; i<optimizer_steps; i++) {
+
+        Matrix<double> y_pred = net.forward(x_xor);
+        Matrix<double> mse_grad = MSEgrad(y_true, y_pred);
+
+        double accuracy = get_accuracy(y_true, y_pred);
+        std::cout << accuracy << std::endl;
+
+        net.backward(mse_grad);
+        net.optimize(learning_rate);
+    }
+
+    std::cout << "prediction: " << std::endl;
+    Matrix<double> out = net.forward(x_xor);
+
+    out.print();
+    argmax(out).print();
 
     return 0;
 }

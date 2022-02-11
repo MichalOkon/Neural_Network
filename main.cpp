@@ -332,10 +332,6 @@ class ReLU : public Layer<T> {
 
 private:
     Matrix<T> cache;
-    Matrix<T> bias_grads;
-    Matrix<T> weight_grads;
-    Matrix<T> weights;
-    Matrix<T> bias;
     int n_samples;
     int in_features;
     int out_features;
@@ -346,30 +342,8 @@ public:
          const int out_features,
          const int n_samples) : n_samples(n_samples), in_features(in_features), out_features(out_features) {
 
-        std::default_random_engine generator(1);
-        std::normal_distribution<T> distribution_normal(0.0, 1.0);
-        std::uniform_real_distribution<T> distribution_uniform(0.0, 1.0);
-
         // create matrices
-        this->weights = Matrix<T>(in_features, out_features);
-        this->weight_grads = Matrix<T>(in_features, out_features);
-        this->bias = Matrix<T>(1, out_features);
-        this->bias_grads = Matrix<T>(1, out_features);
         this->cache = Matrix<T>(n_samples, in_features);
-
-        // set initial weights and weight gradients
-        for (int i = 0; i < in_features; i++) {
-            for (int j = 0; j < out_features; j++) {
-                this->weights[{i, j}] = distribution_normal(generator);
-                this->weight_grads[{i, j}] = 0;
-            }
-        }
-
-        // set initial bias and bias grads
-        for (int i = 0; i < out_features; i++) {
-            this->bias[{0, i}] = distribution_uniform(generator);
-            this->bias_grads[{0, i}] = 0;
-        }
 
         // set initial cache values
         for (int i = 0; i < n_samples; i++) {
@@ -387,11 +361,13 @@ public:
         this->cache = x;
 
         // apply reLu nonlinearity
-        Matrix<T> out =  x * this->weights + this->bias;
-        for (int i=0; i<out.getRows(); i++) {
-            for (int j=0; j<out.getCols(); j++) {
-                if (out[{i,j}] < 0) {
-                    out[{i,j}] = 0;
+        Matrix<T> out = Matrix<T>(x.getRows(), x.getCols());
+        for (int i = 0; i < out.getRows(); i++) {
+            for (int j = 0; j < out.getCols(); j++) {
+                if (x[{i, j}] < 0) {
+                    out[{i, j}] = 0;
+                } else {
+                    out[{i, j}] = x[{i, j}];
                 }
             }
         }
@@ -401,45 +377,14 @@ public:
 
     virtual Matrix<T> backward(const Matrix<T> &dy) override final {
 
-        // update the weights gradient, element-wise multiplication, multiply each gradient
-        Matrix<T> cache_transposed = this->cache.transpose();
-        for(int i = 0; i < cache_transposed.getRows(); i++) {
-            for(int j = 0; j < dy.getCols(); j++) {
-                T sum = 0;
-                for(int k = 0; cache_transposed.getCols(); k++) {
-                    if (dy > 0) {
-                        T derivative = cache_transposed[{i, k}] * dy[{k, j}];
-                        sum += derivative;
-                    }
+        Matrix<T> out = Matrix<T>(dy.getRows(), dy.getCols());
+        for (int i = 0; i < out.getRows(); i++) {
+            for (int j = 0; j < out.getCols(); j++) {
+                if (dy[{i, j}] < 0) {
+                    out[{i, j}] = 0;
+                } else {
+                    out[{i, j}] = 1;
                 }
-                this->weight_grads[{i, j}] = sum;
-            }
-        }
-
-        // update the bias gradient
-        for (int i = 0; i < (int) dy.getCols(); i++) {
-            T sum = 0;
-            for (int j = 0; j < (int) dy.getRows(); j++) {
-                if(dy[{j, i}] > 0) {
-                    sum += dy[{j, i}];
-                }
-            }
-            this->bias_grads[{0, i}] = sum;
-        }
-
-        // calculate the downstream gradient and return it
-        Matrix<T> weights_transposed = this->weights.transpose();
-        Matrix<T> out (dy.getRows(), weights_transposed.getCols());
-        for(int i = 0; i < dy.getRows(); i++) {
-            for(int j = 0; j < weights_transposed.getCols(); j++) {
-                T sum = 0;
-                for(int k = 0; dy.getCols(); k++) {
-                    if (dy[{i, k}]> 0) {
-                        T derivative = dy[{i, k}] * weights_transposed[{k, j}];
-                        sum += derivative;
-                    }
-                }
-                out[{i, j}] = sum;
             }
         }
 
@@ -456,32 +401,37 @@ public:
     ReLU<T> hidden_layer;
     Linear<T> out_layer;
 
-    Net(int in_features, int hidden_dim, int out_features, int n_samples, int seed) {
-        this->in_layer = Linear<T>(in_features, hidden_dim, n_samples, seed);
-        this->hidden = ReLU<T>(hidden_dim, hidden_dim, n_samples);
-        this->out_layer = Linear<T>(hidden_dim, out_features, n_samples);
-    }
+    Net(int in_features, int hidden_dim, int out_features, int n_samples, int seed)
+            : in_layer(Linear<T>(in_features, hidden_dim, n_samples, seed)),
+              hidden_layer(ReLU<T>(hidden_dim, hidden_dim, n_samples)),
+              out_layer(Linear<T>(hidden_dim, out_features, n_samples, seed)) {}
 
     ~Net() = default;
 
-    Matrix<T> forward(const Matrix<T>& x) {
+    Matrix<T> forward(const Matrix<T> &x) {
         Matrix<T> x_cp(x);
-        x_cp = in_layer.forward();
-        x_cp = hidden_layer.forward();
-        x_cp = out_layer.forward();
+        x_cp = in_layer.forward(x_cp);
+        x_cp = hidden_layer.forward(x_cp);
+        x_cp = out_layer.forward(x_cp);
         return x_cp;
     }
 
-    Matrix<T> backward(const Matrix<T>& dy) {
-
+    Matrix<T> backward(const Matrix<T> &dy) {
+        Matrix<T> dy_cp(dy);
+        dy_cp = out_layer.backward(dy_cp);
+        dy_cp = hidden_layer.backward(dy_cp);
+        dy_cp = in_layer.backward(dy_cp);
+        return dy_cp;
     }
 
     void optimize(T learning_rate) {
-
+        in_layer.optimize(learning_rate);
+        out_layer.optimize(learning_rate);
     }
 };
 
 // Function to calculate the loss
+
 template<typename T>
 T MSEloss(const Matrix<T> &y_true, const Matrix<T> &y_pred) {
     int n = y_true.getCols() * y_pred.getRows();
@@ -647,10 +597,10 @@ bool test_linear() {
     Linear<double> l(3, 2, 1, 0);
 
     std::cout << "weights" << std::endl;
-     l.weights.print();
+    l.weights.print();
 
     std::cout << "biases" << std::endl;
-     l.bias.print();
+    l.bias.print();
 
     // input
     Matrix<double> x(1, 3);
@@ -692,9 +642,35 @@ bool test_accuracy() {
 
 int main(int argc, char *argv[]) {
     // Your training and testing of the Net class starts here
-    test_linear();
-//    test_matrix();
-//    test_MSE();
-//    test_accuracy();
+    // test_linear();
+    // test_matrix();
+    // test_MSE();
+    // test_accuracy();
+
+    double learning_rate = 0.0005;
+    int optimizer_steps = 100;
+    int seed = 1;
+
+    int in_features = 2;
+    int hidden_dim = 100;
+    int out_features = 2;
+    Net<double> net(in_features, hidden_dim, out_features, 8, 1);
+
+    Matrix<double> x_xor(4, 2);
+    x_xor[{1, 1}] = 1;
+    x_xor[{2, 0}] = 1;
+    x_xor[{3, 0}] = 1;
+    x_xor[{3, 1}] = 1;
+
+    Matrix<double> y_xor(4, 2);
+    x_xor[{0, 0}] = 1;
+    x_xor[{1, 1}] = 1;
+    x_xor[{2, 1}] = 1;
+    x_xor[{3, 0}] = 1;
+
+    net.forward(x_xor);
+    net.backward(x_xor);
+
+
     return 0;
 }
